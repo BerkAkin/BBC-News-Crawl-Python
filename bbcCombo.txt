@@ -1,0 +1,172 @@
+import requests
+import csv
+from bs4 import BeautifulSoup
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import os
+
+linkDizisi = ["https://www.bbc.com/news/world-60525350","https://www.bbc.com/news/coronavirus",
+"https://www.bbc.com/news/science-environment-56837908","https://www.bbc.com/news/world/africa",
+"https://www.bbc.com/news/world/asia","https://www.bbc.com/news/world/asia/china","https://www.bbc.com/news/world/asia/india",
+"https://www.bbc.com/news/world/australia","https://www.bbc.com/news/world/europe","https://www.bbc.com/news/world/latin_america",
+"https://www.bbc.com/news/world/middle_east","https://www.bbc.com/news/world/us_and_canada","https://www.bbc.com/news/england",
+"https://www.bbc.com/news/northern_ireland","https://www.bbc.com/news/scotland","https://www.bbc.com/news/wales",
+"https://www.bbc.com/news/world/europe/isle_of_man","https://www.bbc.com/news/world/europe/jersey","https://www.bbc.com/news/politics",
+"https://www.bbc.com/news/politics/parliaments","https://www.bbc.com/news/politics/uk_leaves_the_eu","https://www.bbc.com/news/business-45489065",
+"https://www.bbc.com/news/business-15521824","https://www.bbc.com/news/business/companies","https://www.bbc.com/news/business-22434141",
+"https://www.bbc.com/news/business-11428889","https://www.bbc.com/news/business/economy","https://www.bbc.com/news/business/global_car_industry",
+"https://www.bbc.com/news/business/business_of_sport","https://www.bbc.com/news/technology","https://www.bbc.com/news/science_and_environment",
+"https://www.bbc.com/news/stories","https://www.bbc.com/news/entertainment_and_arts","https://www.bbc.com/news/health"
+]
+
+for tumlinkler in linkDizisi:
+    # Dosyanın olup olmadığını kontrol etmek için(csv oluştururken başlığı 2 kez basmasın diye) #
+    dosyaYolu= "C:\\Users\\berka\\Desktop\\bbcCombo.csv"
+    dosyaVarmi = os.path.isfile(dosyaYolu)
+    print(tumlinkler)
+
+
+    # Ana sayfadaki haberlerin adresi #
+    url=tumlinkler
+
+    # Bağlantının düzgün sağlanması için tarayıcı kullanıcı bilgisi #
+    headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36"}
+
+    # Ana sayfaya bilgimizi kullanarak bağlanma #
+    sayfa = requests.get(url, headers=headers)
+
+    # Ana sayfa kaynak kodlarının alınması #
+    icerik= BeautifulSoup(sayfa.content,'html.parser')
+
+
+    # Ana sayfadaki haberlerin hypertext(href) değerlerini çekmek #
+    haberlerinLinki = ""
+    for linkal in icerik.find_all(
+        'a', href=True, 
+        class_='qa-heading-link lx-stream-post__header-link'):
+        haberlerinLinki+=str(linkal['href']+" ")
+
+    # Ana sayfadaki haberlerin hypertext(href) değerlerini boşlukla ayırarak diziye atmak #
+    ayrikhaberler=haberlerinLinki.split(" ")
+
+    # Ana sayfadaki haberlerin href değerlerini içeren diziden article olanları çıkarıp sadece haberleri alıp bir diziye atmak
+    articleharic=" "
+    linkDizisi=[]
+    for q in ayrikhaberler:
+        if q.startswith("/news"):
+            a="https://www.bbc.com"+q
+            linkDizisi.append("https://www.bbc.com"+q)
+
+
+
+    # Link dizisinden tekrar edenleri çıkarmak için satır (html kısmında before: , after: şeklinde tanımladıkları için bazı linkler
+    #iki kez geliyordu onun önüne geçtim)
+    tekrarEtmeyenLinkDizisi = [] 
+    [tekrarEtmeyenLinkDizisi.append(x) for x in linkDizisi if x not in tekrarEtmeyenLinkDizisi] 
+
+
+
+    # -------------------------2.KISIM-----HABERİN İÇİNE GİRİP HABER TÜRÜNÜ VE İÇERİĞİNİ ALMAK-----2.KISIM-------------------------# 
+
+    # Haber türü ve haber içeriğinin csv dosyasına atılmasından önce csv oluşturulur ve başlık ayarlanır
+    if(dosyaVarmi==0):  
+        with open('bbcCombo.csv', 'a',encoding='utf-8', newline='') as file:
+            fieldnames = ['haberIcerigi', 'haberTuru']
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+
+    # Haberlerin linkleri içeren diziyi oluşturup tek tek dizi elemanlarına bağlanıp haberlerin içeriklerini ve türlerini çekmek
+    for low in range(len(tekrarEtmeyenLinkDizisi)):
+        url2=tekrarEtmeyenLinkDizisi[low]
+        sayfa2 = requests.get(url2, headers=headers)
+
+        #Haberin Sayfa kaynak kodlarının alınması
+        icerik2= BeautifulSoup(sayfa2.content,'html.parser')
+
+
+
+        # ------------------Haber içeriğini çekme---------------------#
+
+        # [] ile birlikte dizi olarak haber içeriğinin alınması
+        etiketliVeri= icerik2.find_all(class_='ssrcss-1q0x1qg-Paragraph eq5iqo00')
+        
+        # [] olmadan haberin içeriğinin alınması
+        haberIcerigi = ""
+        for i in etiketliVeri[:-15]:
+            etiketsizVeri=i.string
+            haberIcerigi+=str(etiketsizVeri)
+            
+        if haberIcerigi is None:
+            continue
+
+        # Haberleri gereksiz sözcüklerden arındırma işlemi
+
+        istenmeyenKelime=[
+            "This","video",
+            "'s",".",",","''","’","-","_",
+            "”","“","``","yet","?","!",":",
+            "...",";","&","%","None ","(",
+            ")","$","'n","n'","'ll","ca"
+            ,"n't","'","But","but"
+        ]
+        gereksizSozcuk = stopwords.words('english')
+        gereksizSozcuk.extend(istenmeyenKelime)
+        Kelimeler = word_tokenize(haberIcerigi)
+
+        FiltrelenmisCumle = [w for w in Kelimeler if not w.lower() in gereksizSozcuk]
+        FiltrelenmisCumle = []
+
+        for kelime in Kelimeler:
+            if kelime not in gereksizSozcuk:
+                FiltrelenmisCumle.append(kelime)
+                FiltrelenmisCumle.append(" ")
+        bosCumle=" "
+        for tara in FiltrelenmisCumle:   
+            bosCumle+=str(tara) 
+
+        # Videolu haberlerin başlarında played sonlarında none kelimeleri olyordu onları atmak için değiştirme işlem 
+        bosCumle = bosCumle.replace("played", "")
+        bosCumle = bosCumle.replace("None", "")     
+        bosCumle = bosCumle.replace(".", "")     
+        bosCumle = bosCumle.replace(",", " ")     
+        
+        # ------------------Haber türünü çekme---------------------#
+
+        # Haberin türünün alınması
+        haberinTuru = ""
+
+        url2=tumlinkler
+        arindirilmisUrl = url2.replace("https://www.bbc.com/news/","")
+
+        if "/" in arindirilmisUrl:
+            for i in arindirilmisUrl.split("/"):
+                haberinTuru=i
+                break
+        elif "-" in arindirilmisUrl:
+            for i in arindirilmisUrl.split("-"):
+                haberinTuru=i
+                break
+        elif "_" in arindirilmisUrl:
+            for i in arindirilmisUrl.split("_"):
+                haberinTuru=i
+                break
+        else:
+            if arindirilmisUrl=="coronavirus":
+                haberinTuru="health"
+            else:
+                haberinTuru=arindirilmisUrl
+
+        
+
+        # Haber türü ve haber içeriğinin csv dosyasına atılması dataset oluşturmak için #
+        if haberIcerigi =="" or haberinTuru =="":
+            continue
+        else:
+            with open('bbcCombo.csv', 'a',encoding='utf-8', newline='') as file:
+                fieldnames = ['haberIcerigi', 'haberTuru']
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writerow({'haberIcerigi': bosCumle, 'haberTuru': haberinTuru})    
+
+
+        print(bosCumle)
+        print(haberinTuru)

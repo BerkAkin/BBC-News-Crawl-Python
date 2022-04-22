@@ -1,0 +1,17 @@
+okunanCsv = open('bbcCombo.csv','r',encoding='utf-8')
+
+yazilanCsv = open('arinmis.csv','w',encoding='utf-8')
+
+temizlenmisListe = []
+
+for satir in okunanCsv:
+    if satir in temizlenmisListe:
+        continue
+    else:
+        print(satir)
+        temizlenmisListe.append(satir)
+        yazilanCsv.write(satir)
+
+yazilanCsv.close()
+
+okunanCsv.close()
